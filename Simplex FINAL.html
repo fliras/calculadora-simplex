@@ -1,0 +1,1497 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Simplex — Resolução Passo a Passo (Max/Min)</title>
+<style>
+  :root{
+    color-scheme:dark;
+    /* paleta base */
+    --p-gray:#2F3032; --p-indigo:#383A56; --p-olive:#B0A565; --p-gold:#EDE68A;
+    /* derivados */
+    --bg:#2F3032; --card:#383A56; --field:#2B2C42; --field-2:#313249;
+    --ink:#ECEADF; --ink-2:#CFCDE0; --muted:#A5A4B8;
+    --line:#4A4C6C; --accent:#EDE68A; --accent-2:#B0A565;
+    --pivot:#EDE68A; --pivot-soft:rgba(237,230,138,.12);
+    --ok:#6FCF97; --ok-soft:rgba(111,207,151,.16);
+    --min:#A9A5EC; --min-2:#8580D6; --min-soft:rgba(169,165,236,.14);
+    --bad:#F08A8A; --warn-c:#F0B36A;
+    --grad-dark:linear-gradient(135deg,#232426 0%,#383A56 60%,#555985 100%);
+    --grad-gold:linear-gradient(135deg,#B0A565,#EDE68A);
+    --radius:14px;
+    --shadow:0 10px 30px rgba(0,0,0,.28);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:'Segoe UI',system-ui,-apple-system,Roboto,sans-serif;
+    background:var(--bg); color:var(--ink); line-height:1.55;
+  }
+  .wrap{max-width:1150px;margin:0 auto;padding:0 18px}
+
+  header{
+    background:var(--grad-dark);
+    color:#fff; padding:34px 0 30px; margin-bottom:26px;
+    box-shadow:0 8px 30px rgba(0,0,0,.4);
+    border-bottom:1px solid rgba(237,230,138,.18);
+  }
+  header h1{margin:0 0 6px;font-size:1.75rem;letter-spacing:-.4px;color:#F7F4E4}
+  header h1 span{font-weight:300;opacity:.85;color:var(--p-gold)}
+  header p{margin:0;opacity:.85;font-size:.95rem;max-width:820px}
+
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    padding:22px 22px 24px; margin-bottom:22px; box-shadow:var(--shadow);
+  }
+  .card h2{margin:0 0 14px;font-size:1.15rem;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .badge{
+    background:var(--grad-gold); color:#2F3032; font-size:.72rem; font-weight:800;
+    padding:4px 10px; border-radius:999px; letter-spacing:.5px; text-transform:uppercase;
+  }
+  .badge.min{background:linear-gradient(135deg,var(--min-2),var(--min));color:#23243a}
+  .card h2 small{font-weight:400;color:var(--muted);font-size:.85rem}
+
+  /* ---------- formulário ---------- */
+  .form-grid{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:16px}
+  .form-grid label{display:flex;align-items:center;gap:8px;font-size:.9rem;color:var(--muted);font-weight:600}
+  .form-grid input{
+    width:70px;padding:7px 9px;border:1px solid var(--line);border-radius:9px;
+    font-size:.95rem;font-family:inherit;color:var(--ink);background:var(--field);
+  }
+  .form-grid select{
+    padding:7px 10px;border:1px solid var(--line);border-radius:9px;
+    font-size:.95rem;font-family:inherit;color:var(--ink);background:var(--field);
+    cursor:pointer;font-weight:600;
+  }
+  .form-grid input:focus,.form-grid select:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:var(--accent)}
+  .sect-title{font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:18px 0 10px}
+  .obj-line{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    background:var(--field-2);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .tag{font-weight:700;color:var(--accent);font-family:ui-monospace,Consolas,monospace}
+  .tag.min{color:var(--min)}
+  .inline-inputs{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .coef{display:inline-flex;align-items:center;gap:5px}
+  .op{color:var(--muted);font-weight:600;margin:0 2px}
+  .vname{font-family:ui-monospace,Consolas,monospace;color:var(--ink-2);font-size:.92rem}
+  input.num{
+    width:74px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;
+    font-family:ui-monospace,Consolas,monospace;font-size:.9rem;text-align:center;
+    background:var(--field);color:var(--ink);
+  }
+  input.num:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:var(--accent)}
+  .cons-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:9px 12px;margin-bottom:8px;
+    background:var(--field-2);border:1px solid var(--line);border-radius:12px}
+  .cons-tag{font-weight:700;color:var(--accent);font-family:ui-monospace,Consolas,monospace;min-width:28px}
+  .sense{font-weight:700;color:var(--accent-2);margin:0 6px;font-size:1.05rem}
+  .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}
+  button{
+    font-family:inherit;font-size:.92rem;font-weight:600;padding:11px 20px;border-radius:10px;
+    border:1px solid var(--line);background:#42446A;color:var(--ink);cursor:pointer;transition:.15s;
+  }
+  button:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(0,0,0,.35);border-color:#5d6088}
+  button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  button.primary{background:var(--grad-gold);color:#2F3032;border-color:transparent;font-weight:700}
+  button.primary:hover{box-shadow:0 8px 22px rgba(237,230,138,.25)}
+
+  /* ---------- Saiba mais ---------- */
+  .help-link{
+    margin-top:14px; padding:8px 16px; font-size:.88rem;
+    background:rgba(237,230,138,.10); color:var(--p-gold); border:1px solid rgba(237,230,138,.45);
+  }
+  .help-link:hover{background:rgba(237,230,138,.2);box-shadow:none;border-color:var(--p-gold)}
+  .help-link:focus-visible{outline:2px solid var(--p-gold);outline-offset:2px}
+
+  dialog.help{
+    width:min(760px, calc(100vw - 24px)); max-height:min(88vh, 900px);
+    padding:0; border:1px solid var(--line); border-radius:16px; color:var(--ink); background:var(--card);
+    box-shadow:0 30px 80px rgba(0,0,0,.6);
+    display:none; flex-direction:column; overflow:hidden;
+  }
+  dialog.help[open]{display:flex; animation:helpIn .18s ease-out}
+  dialog.help::backdrop{background:rgba(20,20,24,.7); backdrop-filter:blur(2px)}
+  @keyframes helpIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){ dialog.help[open]{animation:none} }
+
+  .help-head{display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:18px 22px;background:var(--grad-dark);color:#fff;border-bottom:1px solid rgba(237,230,138,.18)}
+  .help-head h2{margin:0;font-size:1.2rem;color:#F7F4E4}
+  .help-close{padding:0;width:34px;height:34px;font-size:1.4rem;line-height:1;
+    background:rgba(255,255,255,.08);color:#fff;border-color:rgba(255,255,255,.3)}
+  .help-close:hover{background:rgba(255,255,255,.18);box-shadow:none}
+  .help-body{padding:6px 24px 10px;overflow-y:auto}
+  .help-body h3{margin:20px 0 6px;font-size:1rem;color:var(--accent)}
+  .help-body p{margin:0 0 10px;font-size:.92rem;max-width:68ch}
+  .help-body b{color:#F7F4E4}
+  .help-body kbd{font-family:inherit;font-size:.75rem;font-weight:700;padding:1px 6px;border:1px solid var(--line);
+    border-bottom-width:2px;border-radius:5px;background:var(--field);color:var(--ink)}
+  .help-body .calc-icon{cursor:default}
+  .help-body .calc-icon:hover{transform:none}
+  .help-legend{display:flex;gap:16px;flex-wrap:wrap;font-size:.82rem;color:var(--muted);margin:0 0 10px}
+  .help-legend span{display:inline-flex;align-items:center;gap:6px}
+  .help-cases{margin:0 0 10px;font-size:.92rem}
+  .help-cases dt{font-weight:700;display:flex;align-items:center;gap:8px;margin-top:10px}
+  .help-cases dd{margin:2px 0 0 18px;max-width:66ch;color:var(--ink-2)}
+  .help-cases .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+  .help-cases .dot.ok{background:var(--ok)}
+  .help-cases .dot.nosol{background:var(--bad)}
+  .help-cases .dot.undecided{background:var(--warn-c)}
+  .help-foot{padding:14px 22px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;background:var(--field-2)}
+
+  /* ---------- colar do Excel ---------- */
+  .paste-help{margin:16px 0 0;font-size:.82rem;color:var(--muted);max-width:780px}
+  .paste-help kbd{font-family:inherit;font-size:.75rem;font-weight:700;padding:1px 6px;border:1px solid var(--line);
+    border-bottom-width:2px;border-radius:5px;background:var(--field);color:var(--ink)}
+  .paste-status{margin:8px 0 0;font-size:.85rem;min-height:0}
+  .paste-status:empty{display:none}
+  .paste-status.ok{color:var(--ok)}
+  .paste-status.partial{color:var(--warn-c)}
+  .paste-status.err{color:var(--bad)}
+  input.num.pasted{animation:pasteFlash 1.1s ease-out}
+  @keyframes pasteFlash{0%{background:rgba(237,230,138,.45);border-color:var(--pivot)}100%{background:var(--field)}}
+  @media (prefers-reduced-motion:reduce){ input.num.pasted{animation:none} }
+
+  /* ---------- tabelas ---------- */
+  .table-wrap{overflow-x:auto;border-radius:12px;border:1px solid var(--line);margin:12px 0}
+  table.tab{border-collapse:collapse;width:100%;font-family:ui-monospace,'Cascadia Code',Consolas,monospace;font-size:.88rem;background:var(--field-2);color:var(--ink)}
+  table.tab th,table.tab td{border:1px solid var(--line);padding:8px 11px;text-align:center;white-space:nowrap}
+  table.tab thead th{background:var(--field);color:var(--ink-2);font-weight:700;font-size:.82rem;letter-spacing:.3px}
+  table.tab th.base{background:#2A2B3F;color:var(--accent);font-weight:800}
+  table.tab tbody tr:hover td{background:#383a55}
+  table.tab .hl-col{background:rgba(237,230,138,.15)}
+  table.tab thead th.hl-col{color:var(--p-gold)}
+  table.tab .hl-row td,table.tab .hl-row th{background:rgba(176,165,101,.12)}
+  table.tab td[data-pivot]{background:var(--p-gold) !important;color:#2F3032;font-weight:800;
+    box-shadow:inset 0 0 0 2px var(--p-olive)}
+  table.tab .ratio{font-size:.8rem;color:var(--ink-2);background:var(--field)}
+  table.tab .ratio.best{background:var(--ok-soft);color:var(--ok);font-weight:700}
+  table.tab .ratio.best b{color:var(--ok)}
+  table.tab.small{font-size:.82rem}
+  table.tab.small td.lbl{font-weight:700;background:var(--field);color:var(--ink-2)}
+  table.tab.small td.res{background:rgba(237,230,138,.07);font-weight:700;color:var(--accent)}
+  table.tab.small td.op{color:var(--muted)}
+  table.tab.small th{font-size:.76rem}
+
+  /* destaque para a célula de resultado que tem tooltip */
+  table.tab.small td.res .res-cell{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    justify-content:center;
+  }
+
+  .hint{background:var(--field-2);border-left:4px solid var(--accent-2);padding:10px 14px;border-radius:0 10px 10px 0;
+    margin:8px 0;font-size:.9rem}
+  .hint b{color:var(--accent)}
+  .hint.min{border-left-color:var(--min);background:var(--min-soft)}
+  .hint.min b{color:var(--min)}
+  .hint.good{border-left-color:var(--ok);background:var(--ok-soft)}
+  .hint.good b{color:var(--ok)}
+  .hint.bad{border-left-color:var(--bad);background:rgba(240,138,138,.12)}
+  .hint.bad b{color:var(--bad)}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:.78rem;color:var(--muted);margin-top:6px}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .sw{width:14px;height:14px;border-radius:4px;display:inline-block;border:1px solid var(--line)}
+  .sw.p{background:var(--p-gold);border-color:var(--p-olive)}
+  .sw.c{background:rgba(237,230,138,.3)}
+  .sw.r{background:rgba(111,207,151,.35)}
+
+  .details{margin-top:18px;border-top:1px dashed var(--line);padding-top:16px}
+  .details h3{margin:0 0 12px;font-size:1rem;color:var(--accent)}
+  .details h4{margin:16px 0 6px;font-size:.86rem;font-weight:700;color:var(--ink-2)}
+  .details h4 b{color:var(--accent)}
+
+  /* ---------- ícone de fórmula + tooltip ---------- */
+  .calc-icon{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:16px;height:16px;
+    border-radius:50%;
+    background:linear-gradient(135deg,#555985,#383A56);
+    border:1px solid var(--p-olive);
+    color:var(--p-gold);
+    font-size:.62rem;
+    font-weight:800;
+    font-family:Georgia,'Times New Roman',serif;
+    font-style:italic;
+    line-height:1;
+    cursor:pointer;
+    user-select:none;
+    vertical-align:middle;
+    transition:transform .12s, box-shadow .12s, background .12s;
+    box-shadow:0 1px 3px rgba(0,0,0,.4);
+    flex-shrink:0;
+  }
+  .calc-icon:hover{
+    transform:scale(1.2);
+    box-shadow:0 3px 9px rgba(237,230,138,.3);
+  }
+  .calc-icon:focus-visible{
+    outline:2px solid var(--p-gold);
+    outline-offset:2px;
+  }
+  .calc-icon.open{
+    background:var(--grad-gold);
+    color:#2F3032;
+    box-shadow:0 3px 9px rgba(237,230,138,.4);
+  }
+
+  .calc-tooltip{
+    position:fixed;
+    background:#1F2022;
+    color:var(--ink);
+    border:1px solid rgba(237,230,138,.25);
+    padding:8px 13px;
+    border-radius:9px;
+    font-size:.82rem;
+    font-family:ui-monospace,'Cascadia Code',Consolas,monospace;
+    white-space:nowrap;
+    pointer-events:none;
+    z-index:9999;
+    box-shadow:0 14px 34px rgba(0,0,0,.55);
+    opacity:0;
+    visibility:hidden;
+    transition:opacity .13s ease;
+    transform:translate(-50%,-100%);
+    letter-spacing:.3px;
+  }
+  .calc-tooltip.visible{ opacity:1; visibility:visible; }
+  .calc-tooltip::after{
+    content:'';
+    position:absolute;
+    top:100%;left:50%;
+    transform:translateX(-50%);
+    border:6px solid transparent;
+    border-top-color:#1F2022;
+  }
+  .calc-tooltip.below{ transform:translate(-50%,0); }
+  .calc-tooltip.below::after{
+    top:auto;
+    bottom:100%;
+    border-top-color:transparent;
+    border-bottom-color:#1F2022;
+  }
+  .calc-tooltip .tt-label{
+    color:var(--p-gold);
+    font-weight:700;
+    margin-right:6px;
+    font-family:'Segoe UI',system-ui,sans-serif;
+    font-size:.74rem;
+    text-transform:uppercase;
+    letter-spacing:.5px;
+  }
+
+  /* ---------- resposta ---------- */
+  .answer{background:linear-gradient(135deg,#2E4540,#383A56);border-color:rgba(111,207,151,.45)}
+  .answer h2{color:var(--ok)}
+  .answer.min{background:linear-gradient(135deg,#3E3C66,#383A56);border-color:rgba(169,165,236,.45)}
+  .answer.min h2{color:var(--min)}
+  .answer-grid{display:flex;gap:14px;flex-wrap:wrap;margin-top:6px}
+  .ans-item{background:var(--field);border:1px solid rgba(111,207,151,.4);border-radius:12px;padding:12px 20px;min-width:110px;
+    display:flex;flex-direction:column;align-items:center;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+  .answer.min .ans-item{border-color:rgba(169,165,236,.4)}
+  .ans-label{font-size:.75rem;text-transform:uppercase;letter-spacing:.6px;color:var(--ok);font-weight:700}
+  .answer.min .ans-label{color:var(--min)}
+  .ans-value{font-size:1.35rem;font-weight:800;color:#F7F4E4;font-family:ui-monospace,Consolas,monospace}
+  .answer.min .ans-value{color:#F7F4E4}
+  .answer p{margin:14px 0 0;font-size:.9rem;color:var(--ink-2)}
+  .answer.min p{color:var(--ink-2)}
+  .answer p b{color:var(--ink)}
+  .warn{background:linear-gradient(135deg,#4A3B2C,#383A56);border-color:rgba(240,179,106,.45)}
+  .warn h2{color:var(--warn-c)}
+  footer{text-align:center;color:var(--muted);font-size:.8rem;padding:10px 0 40px}
+
+  /* ---------- trilha de abas (uma por tabela + resultado) ---------- */
+  .stepper{
+    position:sticky; top:0; z-index:40;
+    margin:0 -18px 18px; padding:12px 18px 0;
+    background:rgba(47,48,50,.95); backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line);
+  }
+  .stepper-row{display:flex;align-items:flex-start;gap:8px}
+  .step-tabs{
+    position:relative; flex:1; min-width:0; display:flex; gap:3px;
+    overflow-x:auto; padding-bottom:10px; margin-bottom:6px;
+    scroll-behavior:smooth; scroll-snap-type:x proximity;
+    scrollbar-width:thin; scrollbar-color:#5A5C80 transparent;
+  }
+  .step-tabs::-webkit-scrollbar{height:6px}
+  .step-tabs::-webkit-scrollbar-thumb{background:#5A5C80;border-radius:99px}
+  .step-tabs::-webkit-scrollbar-track{background:transparent}
+  .step-tab{scroll-snap-align:start}
+  /* esmaece a borda do lado onde ainda há abas escondidas */
+  .stepper.can-left  .step-tabs{-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 40px);mask-image:linear-gradient(90deg,transparent 0,#000 40px)}
+  .stepper.can-right .step-tabs{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 40px),transparent 100%);mask-image:linear-gradient(90deg,#000 calc(100% - 40px),transparent 100%)}
+  .stepper.can-left.can-right .step-tabs{-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 40px,#000 calc(100% - 40px),transparent 100%);mask-image:linear-gradient(90deg,transparent 0,#000 40px,#000 calc(100% - 40px),transparent 100%)}
+  /* setas de rolagem: só aparecem quando as abas não cabem */
+  .tabs-scroll{
+    display:none; flex-shrink:0; width:36px; height:46px; padding:0;
+    align-items:center; justify-content:center;
+    font-size:1.3rem; line-height:1; color:var(--accent);
+  }
+  .stepper.overflow .tabs-scroll{display:inline-flex}
+  .tabs-scroll:disabled{opacity:.35;cursor:default;transform:none;box-shadow:none}
+  .tabs-hint{display:none;font-size:.76rem;color:var(--muted);margin:-4px 0 8px}
+  .stepper.overflow .tabs-hint{display:block}
+  .step-tab{
+    flex:1 0 170px; display:flex; align-items:center; gap:10px;
+    padding:10px 28px 10px 26px; margin:0;
+    border:none; border-radius:0; background:var(--card); color:var(--muted);
+    text-align:left; font-weight:600; box-shadow:none;
+    clip-path:polygon(0 0,calc(100% - 14px) 0,100% 50%,calc(100% - 14px) 100%,0 100%,14px 50%);
+    transition:background .15s,color .15s;
+  }
+  .step-tab:first-child{
+    padding-left:16px; border-radius:12px 0 0 12px;
+    clip-path:polygon(0 0,calc(100% - 14px) 0,100% 50%,calc(100% - 14px) 100%,0 100%);
+  }
+  .step-tab:hover{transform:none;box-shadow:none}
+  .step-tab:not(.active):not(.done):not(.result):hover{background:#42446A;color:var(--ink)}
+  .step-tab:focus-visible{outline:none;box-shadow:inset 0 0 0 3px var(--pivot)}
+  .st-num{
+    flex-shrink:0; width:26px; height:26px; border-radius:50%;
+    display:inline-flex; align-items:center; justify-content:center;
+    background:#4A4C6C; color:var(--ink); font-size:.8rem; font-weight:800;
+  }
+  .st-text{display:flex;flex-direction:column;line-height:1.25;min-width:0}
+  .st-title{font-size:.9rem}
+  .st-sub{font-size:.76rem;font-weight:500;white-space:nowrap}
+  .st-sub .v{font-family:ui-monospace,Consolas,monospace;font-weight:700}
+
+  /* etapas já percorridas */
+  .step-tab.done{background:#4A4A4F;color:var(--p-gold)}
+  .step-tab.done .st-num{background:var(--p-olive);color:#2F3032}
+  /* etapa atual */
+  .step-tab.active{background:var(--grad-gold);color:#2F3032}
+  .step-tab.active .st-num{background:#2F3032;color:var(--p-gold)}
+  /* aba de resultado */
+  .step-tab.result{background:#2E4540;color:var(--ok)}
+  .step-tab.result .st-num{background:rgba(111,207,151,.25);color:var(--ok);font-family:Georgia,serif;font-style:italic}
+  .step-tab.result.active{background:linear-gradient(135deg,#3E8C66,#6FCF97);color:#1E2A24}
+  .step-tab.result.active .st-num{background:#1E2A24;color:var(--ok)}
+
+  /* variação para minimização (lilás) */
+  .stepper.is-min .step-tab.done{background:#44435E;color:var(--min)}
+  .stepper.is-min .step-tab.done .st-num{background:var(--min-2);color:#23243a}
+  .stepper.is-min .step-tab.active{background:linear-gradient(135deg,var(--min-2),var(--min));color:#23243a}
+  .stepper.is-min .step-tab.active .st-num{background:#23243a;color:var(--min)}
+  .stepper.is-min .step-tab.result{background:#3E3C66;color:var(--min)}
+  .stepper.is-min .step-tab.result .st-num{background:rgba(169,165,236,.25);color:var(--min)}
+  .stepper.is-min .step-tab.result.active{background:linear-gradient(135deg,var(--min-2),var(--min));color:#23243a}
+  .stepper.is-min .step-tab.result.active .st-num{background:#23243a;color:var(--min)}
+
+  /* aba Resultado quando não há solução (vermelho) ou não houve conclusão (âmbar) */
+  .step-tab.result.nosol, .stepper.is-min .step-tab.result.nosol{background:#4A2E33;color:var(--bad)}
+  .step-tab.result.nosol .st-num, .stepper.is-min .step-tab.result.nosol .st-num{background:rgba(240,138,138,.25);color:var(--bad);font-family:inherit;font-style:normal}
+  .step-tab.result.nosol.active, .stepper.is-min .step-tab.result.nosol.active{background:linear-gradient(135deg,#B04A4A,#F08A8A);color:#2A1C1E}
+  .step-tab.result.nosol.active .st-num, .stepper.is-min .step-tab.result.nosol.active .st-num{background:#2A1C1E;color:var(--bad)}
+  .step-tab.result.undecided, .stepper.is-min .step-tab.result.undecided{background:#4A3B2C;color:var(--warn-c)}
+  .step-tab.result.undecided .st-num, .stepper.is-min .step-tab.result.undecided .st-num{background:rgba(240,179,106,.25);color:var(--warn-c);font-family:inherit;font-style:normal}
+  .step-tab.result.undecided.active, .stepper.is-min .step-tab.result.undecided.active{background:linear-gradient(135deg,#B9772F,#F0B36A);color:#2A2218}
+  .step-tab.result.undecided.active .st-num, .stepper.is-min .step-tab.result.undecided.active .st-num{background:#2A2218;color:var(--warn-c)}
+
+  .alt-note{margin-top:14px;padding:10px 14px;border-radius:10px;font-size:.9rem;
+    background:rgba(237,230,138,.08);border:1px solid rgba(176,165,101,.7);color:var(--ink)}
+  .alt-note b{color:var(--p-gold)}
+  .nosol{background:linear-gradient(135deg,#4A2E33,#383A56);border-color:rgba(240,138,138,.45)}
+  .nosol h2{color:var(--bad)}
+  .nosol p{margin:10px 0 0;font-size:.92rem}
+  .nosol .coef-list{margin:8px 0 0;padding-left:22px;font-family:ui-monospace,Consolas,monospace;font-size:.88rem}
+  .nosol .nosol-foot{color:#F4B4B4;font-size:.85rem}
+  .warn p{margin:10px 0 0;font-size:.92rem}
+
+  .step-panel{animation:panelIn .18s ease-out}
+  @keyframes panelIn{from{opacity:0;transform:translateX(10px)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){ .step-panel{animation:none} }
+
+  /* navegação entre abas no rodapé de cada painel */
+  .pager{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:-6px 0 26px;flex-wrap:wrap}
+  .pager .count{color:var(--muted);font-size:.85rem}
+  .pager .spacer{min-width:1px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <h1>Método Simplex <span>— resolução passo a passo</span></h1>
+    <p>Ferramenta didática que resolve problemas de programação linear pelo método Simplex e apresenta
+       cada tabela do processo, para que se acompanhe, iteração por iteração, como a solução ótima é encontrada.</p>
+    <button type="button" id="btnHelp" class="help-link" aria-haspopup="dialog">Saiba mais: como usar a ferramenta</button>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section class="card">
+    <h2><span class="badge">Entrada</span> Dados do problema</h2>
+
+    <div class="form-grid">
+      <label>Nº de variáveis <input id="nVars" type="number" min="2" max="5" value="2"></label>
+      <label>Nº de restrições <input id="nCons" type="number" min="1" max="6" value="2"></label>
+      <label>Objetivo
+        <select id="objType">
+          <option value="max">Maximizar</option>
+          <option value="min">Minimizar</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="obj-line">
+      <span class="tag" id="objTag">Max Z =</span>
+      <div id="objInputs" class="inline-inputs"></div>
+    </div>
+
+    <div class="sect-title">Restrições (≤) e não negatividade x<sub>j</sub> ≥ 0</div>
+    <div id="consInputs"></div>
+
+    <div class="actions">
+      <button id="btnSolve" class="primary">▶ Resolver pelo Simplex</button>
+      <button id="btnExample">Exemplo da aula (Max)</button>
+      <button id="btnExampleMin">Exemplo (Min)</button>
+      <button id="btnClear">Limpar</button>
+    </div>
+
+    <p class="paste-help">Colar do Excel: selecione o bloco na planilha (1ª linha com os coeficientes de Z, uma linha
+       por restrição com os coeficientes e o CTE), copie, clique no campo onde o bloco deve começar e pressione
+       <kbd>Ctrl</kbd>+<kbd>V</kbd>. Colunas e linhas só de texto, como rótulos ou o sinal ≤, são ignoradas.</p>
+    <p id="pasteStatus" class="paste-status" role="status" aria-live="polite"></p>
+  </section>
+
+  <div id="output"></div>
+
+  <footer>Ferramenta didática de Pesquisa Operacional — Método Simplex (forma padrão com variáveis de folga).</footer>
+</main>
+
+<!-- Tela de ajuda (Saiba mais) -->
+<dialog id="helpDialog" class="help" aria-labelledby="helpTitle">
+  <div class="help-head">
+    <h2 id="helpTitle">Como usar a ferramenta</h2>
+    <button type="button" class="help-close" data-close-help aria-label="Fechar ajuda">×</button>
+  </div>
+  <div class="help-body">
+
+    <h3>1. Informe o problema</h3>
+    <p>Escolha o número de variáveis (2 a 5), o número de restrições (1 a 6) e se o objetivo é maximizar
+       ou minimizar Z. A tabela de entrada se ajusta automaticamente. Preencha os coeficientes da função
+       objetivo e, em cada restrição, os coeficientes das variáveis e o termo independente (CTE).</p>
+    <p>Para começar rápido, use os botões <b>Exemplo da aula (Max)</b> ou <b>Exemplo (Min)</b>.
+       O botão <b>Limpar</b> zera os campos mantendo as quantidades escolhidas.</p>
+
+    <h3>2. Cole dados de uma planilha (opcional)</h3>
+    <p>Monte o problema no Excel ou no Google Sheets: a primeira linha com os coeficientes de Z e uma linha
+       por restrição com os coeficientes e o CTE. Copie o bloco, clique no campo onde ele deve começar e
+       pressione <kbd>Ctrl</kbd>+<kbd>V</kbd>. Colar em Z·x<sub>1</sub> preenche o problema inteiro; colar
+       em R1·x<sub>1</sub> preenche só as restrições.</p>
+    <p>Linhas e colunas só de texto (rótulos, o sinal ≤) são ignoradas, números com vírgula decimal são
+       aceitos e células vazias não apagam o que já estava no campo. Se o bloco for maior que a tabela,
+       uma mensagem indica quantos valores ficaram de fora.</p>
+
+    <h3>3. Resolva e acompanhe as abas</h3>
+    <p>Clique em <b>Resolver pelo Simplex</b>. Abaixo do formulário aparece uma trilha de abas: uma para cada
+       tabela do método e uma última com o resultado. Cada aba já indica qual variável entra e qual sai da
+       base naquela etapa.</p>
+    <p>Navegue clicando nas abas, pelos botões no fim de cada painel ou pelas setas <kbd>←</kbd> <kbd>→</kbd>
+       do teclado com uma aba selecionada. Quando há muitas etapas, a trilha rola na horizontal e ganha
+       setas nas laterais.</p>
+
+    <h3>4. Leia cada tabela</h3>
+    <p>Cada aba explica a escolha da <b>coluna pivô</b> (coeficiente mais negativo da linha Z na maximização,
+       mais positivo na minimização), da <b>linha pivô</b> (menor razão entre o CTE e a coluna pivô) e mostra
+       o quadro com os destaques:</p>
+    <div class="help-legend">
+      <span><i class="sw c"></i> coluna pivô</span>
+      <span><i class="sw p"></i> elemento pivô</span>
+      <span><i class="sw r"></i> linha pivô (menor razão)</span>
+    </div>
+    <p>Logo abaixo, a memória de cálculo mostra como cada nova linha foi obtida. Passe o mouse ou clique no
+       ícone <span class="calc-icon" aria-hidden="true">i</span> ao lado de um resultado para ver a fórmula
+       usada naquele valor.</p>
+
+    <h3>5. Interprete o resultado</h3>
+    <p>A última aba traz o valor ótimo de Z, os valores das variáveis e das folgas, e a verificação da
+       função objetivo. A cor da aba já indica o tipo de desfecho:</p>
+    <dl class="help-cases">
+      <dt><span class="dot ok"></span>Solução ótima</dt>
+      <dd>O método encontrou o ótimo. Se aparecer um alerta amarelo, existem outras soluções com o mesmo Z:
+          alguma variável fora da base tem coeficiente 0 na linha Z.</dd>
+      <dt><span class="dot nosol"></span>Sem solução (ilimitado)</dt>
+      <dd>Z pode crescer (ou diminuir, na minimização) sem limite, porque a variável que deveria entrar não
+          tem nenhum coeficiente positivo em sua coluna. Costuma indicar uma restrição faltando no modelo.</dd>
+      <dt><span class="dot undecided"></span>Sem conclusão</dt>
+      <dd>O limite de 60 iterações foi atingido, geralmente por ciclagem em problemas degenerados.
+          Isso não significa que o problema não tenha solução.</dd>
+    </dl>
+
+    <h3>Limitações</h3>
+    <p>A ferramenta trabalha com a forma padrão: restrições do tipo ≤, termos independentes maiores ou iguais
+       a zero e variáveis não negativas. Restrições ≥ ou =, ou um CTE negativo, exigem os métodos de Duas
+       Fases ou Big-M, que não fazem parte desta ferramenta; nesses casos um aviso é exibido e nenhuma
+       tabela é gerada.</p>
+  </div>
+  <div class="help-foot">
+    <button type="button" class="primary" data-close-help>Entendi, voltar para a ferramenta</button>
+  </div>
+</dialog>
+
+<!-- Tooltip flutuante global -->
+<div id="calcTooltip" class="calc-tooltip" role="tooltip"></div>
+
+<script>
+/* =========================================================
+   1. ESTADO / UTILITÁRIOS
+   ========================================================= */
+const model = { type: 'max', n: 2, m: 2, c: [30, 50], A: [[2, 4], [3, 2]], b: [40, 30] };
+const EPS = 1e-9;
+
+const $ = id => document.getElementById(id);
+const num = v => { const x = parseFloat(String(v).replace(',', '.')); return isFinite(x) ? x : 0; };
+
+function fmt(v) {
+  if (typeof v !== 'number' || !isFinite(v)) return String(v);
+  let x = Math.abs(v) < 1e-10 ? 0 : v;
+  let s = x.toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
+  if (s === '-0' || s === '') s = '0';
+  return s.replace('.', ',');
+}
+
+function varName(j, n) {
+  return j < n ? 'X' + (j + 1) : 'S' + (j - n + 1);
+}
+
+/* escapa texto para uso em atributo HTML */
+function escapeAttr(s){
+  return String(s)
+    .replace(/&/g,'&amp;')
+    .replace(/"/g,'&quot;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;');
+}
+
+/* =========================================================
+   2. CONSTRUÇÃO DO FORMULÁRIO
+   ========================================================= */
+function buildForm() {
+  const n = model.n, m = model.m;
+  setPasteStatus('', '');
+
+  const tag = $('objTag');
+  const sel = $('objType');
+  if (sel) sel.value = model.type;
+  if (tag) {
+    tag.textContent = (model.type === 'min' ? 'Min Z =' : 'Max Z =');
+    tag.classList.toggle('min', model.type === 'min');
+  }
+
+  const obj = $('objInputs');
+  obj.innerHTML = '';
+  for (let j = 0; j < n; j++) {
+    if (j > 0) obj.insertAdjacentHTML('beforeend', '<span class="op">+</span>');
+    obj.insertAdjacentHTML('beforeend',
+      `<span class="coef"><input class="num" type="number" step="any" id="c${j}" value="${model.c[j] ?? 0}">
+       <span class="vname">x<sub>${j + 1}</sub></span></span>`);
+  }
+
+  const cons = $('consInputs');
+  cons.innerHTML = '';
+  for (let i = 0; i < m; i++) {
+    let row = `<div class="cons-row"><span class="cons-tag">R${i + 1}</span>`;
+    for (let j = 0; j < n; j++) {
+      if (j > 0) row += '<span class="op">+</span>';
+      row += `<input class="num" type="number" step="any" id="a${i}_${j}" value="${model.A[i][j] ?? 0}">
+              <span class="vname">x<sub>${j + 1}</sub></span>`;
+    }
+    row += `<span class="sense">≤</span>
+            <input class="num" type="number" step="any" id="b${i}" value="${model.b[i] ?? 0}"></div>`;
+    cons.insertAdjacentHTML('beforeend', row);
+  }
+}
+
+function captureInto(md) {
+  if ($('objType')) md.type = $('objType').value === 'min' ? 'min' : 'max';
+  for (let j = 0; j < md.n; j++) {
+    const el = $('c' + j); if (el) md.c[j] = num(el.value);
+  }
+  for (let i = 0; i < md.m; i++) {
+    for (let j = 0; j < md.n; j++) {
+      const el = $('a' + i + '_' + j); if (el) md.A[i][j] = num(el.value);
+    }
+    const el = $('b' + i); if (el) md.b[i] = num(el.value);
+  }
+}
+
+function resizeModel(md, n, m) {
+  const c = []; for (let j = 0; j < n; j++) c[j] = md.c[j] ?? 0;
+  const A = [], b = [];
+  for (let i = 0; i < m; i++) {
+    A[i] = []; for (let j = 0; j < n; j++) A[i][j] = (md.A[i] && md.A[i][j] != null) ? md.A[i][j] : 0;
+    b[i] = md.b[i] ?? 0;
+  }
+  md.n = n; md.m = m; md.c = c; md.A = A; md.b = b;
+}
+
+/* =========================================================
+   3. MOTOR SIMPLEX  (Max e Min)
+   ========================================================= */
+function cloneT(T) { return T.map(r => r.slice()); }
+
+function solveSimplex(md) {
+  const isMin = md.type === 'min';
+  const n = md.n, m = md.m;
+  const totalCols = n + m + 1;
+
+  const T = [];
+  const zRow = new Array(totalCols).fill(0);
+  for (let j = 0; j < n; j++) zRow[j] = -md.c[j];
+  T.push(zRow);
+
+  const basis = [];
+  for (let i = 0; i < m; i++) {
+    const row = new Array(totalCols).fill(0);
+    for (let j = 0; j < n; j++) row[j] = md.A[i][j];
+    row[n + i] = 1;
+    row[totalCols - 1] = md.b[i];
+    T.push(row);
+    basis.push(n + i);
+  }
+
+  const steps = [];
+
+  for (let it = 0; it < 60; it++) {
+
+    let pivotCol = -1;
+    if (isMin) {
+      let mostPos = EPS;
+      for (let j = 0; j < totalCols - 1; j++) {
+        if (T[0][j] > mostPos) { mostPos = T[0][j]; pivotCol = j; }
+      }
+    } else {
+      let mostNeg = -EPS;
+      for (let j = 0; j < totalCols - 1; j++) {
+        if (T[0][j] < mostNeg) { mostNeg = T[0][j]; pivotCol = j; }
+      }
+    }
+
+    if (pivotCol === -1) {
+      steps.push({ T: cloneT(T), basis: basis.slice(), pivot: null, ratios: [], kind: 'optimal' });
+      break;
+    }
+
+    const ratios = [];
+    let pivotRow = -1, minRatio = Infinity;
+    for (let i = 1; i <= m; i++) {
+      const a = T[i][pivotCol];
+      if (a > EPS) {
+        const r = T[i][totalCols - 1] / a;
+        ratios.push({ row: i, val: r });
+        if (r < minRatio - 1e-12) { minRatio = r; pivotRow = i; }
+      } else {
+        ratios.push({ row: i, val: null });
+      }
+    }
+
+    if (pivotRow === -1) {
+      steps.push({ T: cloneT(T), basis: basis.slice(), pivot: { col: pivotCol, row: null }, ratios, kind: 'unbounded' });
+      break;
+    }
+
+    steps.push({
+      T: cloneT(T), basis: basis.slice(),
+      pivot: { col: pivotCol, row: pivotRow }, ratios, kind: 'iterate'
+    });
+
+    const piv = T[pivotRow][pivotCol];
+    const oldPivotRow = T[pivotRow].slice();
+    for (let j = 0; j < totalCols; j++) T[pivotRow][j] = oldPivotRow[j] / piv;
+
+    for (let i = 0; i <= m; i++) {
+      if (i === pivotRow) continue;
+      const f = T[i][pivotCol];
+      if (Math.abs(f) < 1e-12) continue;
+      for (let j = 0; j < totalCols; j++) T[i][j] -= f * T[pivotRow][j];
+    }
+    basis[pivotRow - 1] = pivotCol;
+
+    for (let i = 0; i <= m; i++)
+      for (let j = 0; j < totalCols; j++)
+        if (Math.abs(T[i][j]) < 1e-10) T[i][j] = 0;
+  }
+
+  return steps;
+}
+
+/* =========================================================
+   4. RENDERIZAÇÃO
+   ========================================================= */
+function tableauHTML(step, n, m) {
+  const T = step.T, totalCols = n + m + 1;
+  const p = step.pivot;
+  const showRatio = step.kind === 'iterate';
+
+  let h = '<div class="table-wrap"><table class="tab"><thead><tr><th class="base">Base</th>';
+  for (let j = 0; j < n + m; j++) {
+    const cls = (p && p.col === j) ? ' class="hl-col"' : '';
+    h += `<th${cls}>${varName(j, n)}</th>`;
+  }
+  h += '<th class="cte">CTE</th>';
+  if (showRatio) h += '<th>Razão (CTE ÷ coluna pivô)</th>';
+  h += '</tr></thead><tbody>';
+
+  for (let i = 0; i <= m; i++) {
+    const isZ = i === 0;
+    let rowCls = '';
+    if (p && p.row === i) rowCls = ' class="hl-row"';
+    h += `<tr${rowCls}>`;
+    h += `<th class="base">${isZ ? 'Z' : varName(step.basis[i - 1], n)}</th>`;
+
+    for (let j = 0; j < totalCols; j++) {
+      const cls = (p && p.col === j) ? ' class="hl-col"' : '';
+      const isPivot = p && p.row === i && p.col === j;
+      h += `<td${cls}${isPivot ? ' data-pivot="1"' : ''}>${fmt(T[i][j])}</td>`;
+    }
+
+    if (showRatio) {
+      const r = step.ratios.find(x => x.row === i);
+      if (!r || r.val === null) {
+        h += '<td class="ratio">—</td>';
+      } else {
+        const best = (p.row === i) ? ' best' : '';
+        h += `<td class="ratio${best}">${fmt(T[i][totalCols - 1])} ÷ ${fmt(T[i][p.col])} = <b>${fmt(r.val)}</b></td>`;
+      }
+    }
+    h += '</tr>';
+  }
+  h += '</tbody></table></div>';
+  return h;
+}
+
+/* pequena fábrica do ícone de fórmula */
+function iconCell(resVal, formula, label){
+  const f = escapeAttr(formula);
+  const l = escapeAttr(label || 'Cálculo');
+  return `<td class="res"><span class="res-cell">${fmt(resVal)}<span class="calc-icon" role="button" tabindex="0" data-formula="${f}" data-label="${l}" aria-label="Ver fórmula do cálculo">i</span></span></td>`;
+}
+
+function detailsHTML(step, n, m) {
+  const T = step.T, totalCols = n + m + 1;
+  const pc = step.pivot.col, pr = step.pivot.row;
+  const piv = T[pr][pc];
+  const entering = varName(pc, n);
+  const leaving = varName(step.basis[pr - 1], n);
+  const newPivotRow = T[pr].map(v => v / piv);
+
+  let h = '<div class="details"><h3>Memória de cálculo das novas linhas</h3>';
+
+  /* --- nova linha pivô --- */
+  h += `<h4>1) Nova linha pivô — entra <b>${entering}</b> no lugar de <b>${leaving}</b>:
+        dividir toda a linha ${leaving} pelo elemento pivô <b>${fmt(piv)}</b></h4>`;
+  h += '<div class="table-wrap"><table class="tab small"><thead><tr>' +
+       `<th>Coluna</th><th>Linha ${leaving} (antiga)</th><th>Operação</th><th>Nova linha ${entering}</th>` +
+       '</tr></thead><tbody>';
+  for (let j = 0; j < totalCols; j++) {
+    const label = (j === totalCols - 1) ? 'CTE' : varName(j, n);
+    const formula = `${fmt(T[pr][j])} ÷ ${fmt(piv)} = ${fmt(newPivotRow[j])}`;
+    h += `<tr><td class="lbl">${label}</td><td>${fmt(T[pr][j])}</td>
+          <td class="op">÷ ${fmt(piv)}</td>
+          ${iconCell(newPivotRow[j], formula, 'Nova linha ' + entering + ' • ' + label)}</tr>`;
+  }
+  h += '</tbody></table></div>';
+
+  /* --- demais linhas --- */
+  for (let i = 0; i <= m; i++) {
+    if (i === pr) continue;
+    const f = T[i][pc];
+    const rowName = (i === 0) ? 'Z' : varName(step.basis[i - 1], n);
+
+    h += `<h4>2) Nova linha <b>${rowName}</b>: linha ${rowName} − (${fmt(f)}) × nova linha pivô</h4>`;
+    h += '<div class="table-wrap"><table class="tab small"><thead><tr>' +
+         '<th>Coluna</th><th>Coef. na coluna pivô</th><th>Nova linha pivô</th>' +
+         `<th>Linha ${rowName} (antiga)</th><th>Resultado</th>` +
+         '</tr></thead><tbody>';
+    for (let j = 0; j < totalCols; j++) {
+      const label = (j === totalCols - 1) ? 'CTE' : varName(j, n);
+      const res = T[i][j] - f * newPivotRow[j];
+      const formula = `${fmt(T[i][j])} − (${fmt(f)} × ${fmt(newPivotRow[j])}) = ${fmt(res)}`;
+      h += `<tr><td class="lbl">${label}</td><td>${fmt(f)}</td><td>${fmt(newPivotRow[j])}</td>
+            <td>${fmt(T[i][j])}</td>
+            ${iconCell(res, formula, 'Linha ' + rowName + ' • ' + label)}</tr>`;
+    }
+    h += '</tbody></table></div>';
+  }
+
+  h += '</div>';
+  return h;
+}
+
+function extractSolution(step, n, m) {
+  const T = step.T, totalCols = n + m + 1;
+  const vals = new Array(n + m).fill(0);
+  step.basis.forEach((v, idx) => { vals[v] = T[idx + 1][totalCols - 1]; });
+  return { Z: T[0][totalCols - 1], vals };
+}
+
+/* ---------- conteúdo de uma tabela (mesmo conteúdo do card original) ---------- */
+function stepCardHTML(step, k, n, m, isMin) {
+  const totalCols = n + m + 1;
+  const subtitle = k === 0 ? 'quadro inicial' : `após a ${k}ª iteração`;
+  const typeLabel = isMin ? 'Minimização' : 'Maximização';
+  const badgeCls = isMin ? 'badge min' : 'badge';
+  let html = '';
+
+  html += `<section class="card">`;
+  html += `<h2><span class="${badgeCls}">Tabela ${k + 1}</span> ${subtitle}
+           <small>(${typeLabel})</small></h2>`;
+
+  if (step.kind === 'iterate') {
+    const p = step.pivot;
+    const entering = varName(p.col, n);
+    const leaving = varName(step.basis[p.row - 1], n);
+    const pivVal = step.T[p.row][p.col];
+    const cteVal = step.T[p.row][totalCols - 1];
+    const minR = step.ratios.find(r => r.row === p.row).val;
+    const others = step.ratios.filter(r => r.row !== p.row)
+      .map(r => `${varName(step.basis[r.row - 1], n)} = ${r.val === null ? 'não se aplica' : fmt(r.val)}`)
+      .join(' · ');
+
+    const extrema = isMin ? 'mais positivo' : 'mais negativo';
+    const hintCls = isMin ? 'hint min' : 'hint';
+
+    html += `<p class="${hintCls}"><b>1º passo — Coluna pivô:</b> o coeficiente <b>${extrema}</b> da linha Z
+             ocorre em <b>${entering}</b> (${fmt(step.T[0][p.col])}). Essa é a variável que entra na base.</p>`;
+    html += `<p class="hint"><b>2º passo — Linha pivô:</b> menor razão entre CTE e a coluna pivô →
+             <b>${leaving}</b> (${fmt(cteVal)} ÷ ${fmt(pivVal)} = <b>${fmt(minR)}</b>). É a variável que sai da base.
+             ${others ? '<br><small>Demais razões: ' + others + '</small>' : ''}</p>`;
+    html += `<p class="hint"><b>Elemento pivô:</b> ${fmt(pivVal)} &nbsp;|&nbsp;
+             <b>Variável que entra:</b> ${entering} &nbsp;|&nbsp; <b>Variável que sai:</b> ${leaving}</p>`;
+  } else if (step.kind === 'optimal') {
+    const msg = isMin
+      ? '✅ Não há mais coeficientes <b>positivos</b> na linha Z — o quadro é <b>ótimo</b> para minimização.'
+      : '✅ Não há mais coeficientes <b>negativos</b> na linha Z — o quadro é <b>ótimo</b> para maximização.';
+    html += `<p class="hint good">${msg}</p>`;
+  } else if (step.kind === 'unbounded') {
+    html += `<p class="hint bad">
+             ⚠ Nenhuma razão válida foi encontrada: o problema é <b>ilimitado</b>.</p>`;
+  }
+
+  html += tableauHTML(step, n, m);
+
+  html += `<div class="legend">
+    <span><i class="sw c"></i> coluna pivô</span>
+    <span><i class="sw p"></i> elemento pivô</span>
+    <span><i class="sw r"></i> linha pivô (menor razão)</span>
+    <span style="margin-left:auto;color:var(--accent);font-weight:600">
+      💡 clique/passe o mouse no <b style="font-family:Georgia,serif;font-style:italic">i</b> para ver a fórmula
+    </span>
+  </div>`;
+
+  if (step.kind === 'iterate') html += detailsHTML(step, n, m);
+
+  html += `</section>`;
+  return html;
+}
+
+/* ---------- conteúdo da aba final (resposta + último quadro) ---------- */
+function resultPanelHTML(steps, n, m, isMin) {
+  const last = steps[steps.length - 1];
+  const lastIdx = steps.length - 1;
+  let html = '';
+
+  if (last.kind === 'optimal') {
+    const sol = extractSolution(last, n, m);
+    const ansCls = isMin ? 'card answer min' : 'card answer';
+    const zLabel = isMin ? 'Z mín' : 'Z máx';
+    const tipoTxt = isMin ? 'minimização' : 'maximização';
+
+    html += `<section class="${ansCls}">
+      <h2>🏁 Resposta para a questão (${tipoTxt})</h2>
+      <div class="answer-grid">
+        <div class="ans-item"><span class="ans-label">${zLabel}</span><span class="ans-value">${fmt(sol.Z)}</span></div>`;
+    for (let j = 0; j < n; j++) {
+      html += `<div class="ans-item"><span class="ans-label">x<sub>${j + 1}</sub></span>
+               <span class="ans-value">${fmt(sol.vals[j])}</span></div>`;
+    }
+    html += `</div>`;
+    if (m > 0) {
+      html += `<p><b>Variáveis de folga:</b> ` +
+        Array.from({ length: m }, (_, i) => `S${i + 1} = ${fmt(sol.vals[n + i])}`).join(' · ') + `</p>`;
+    }
+    html += `<p><b>Verificação:</b> Z = ` +
+      model.c.map((cj, j) => `${fmt(cj)}·${fmt(sol.vals[j])}`).join(' + ') +
+      ` = ${fmt(sol.Z)}</p>`;
+
+    /* alerta de múltiplas soluções ótimas: variável não básica com coeficiente 0 na linha Z
+       cuja entrada na base levaria a outro ponto (razão mínima > 0 ou coluna sem limite) */
+    const totalCols = n + m + 1;
+    const alt = [];
+    for (let j = 0; j < n + m; j++) {
+      if (last.basis.includes(j) || Math.abs(last.T[0][j]) > EPS) continue;
+      let minR = Infinity;
+      for (let i = 1; i <= m; i++) {
+        if (last.T[i][j] > EPS) minR = Math.min(minR, last.T[i][totalCols - 1] / last.T[i][j]);
+      }
+      if (minR > EPS) alt.push(varName(j, n));   /* razão 0 = mesmo ponto; não é outra solução */
+    }
+    if (alt.length) {
+      const lista = alt.join(', ');
+      html += `<div class="alt-note">
+        <b>ℹ Esta não é a única solução ótima:</b> existem outras combinações de valores com o mesmo Z = ${fmt(sol.Z)}.
+        No quadro ótimo (Tabela ${lastIdx + 1}), ${alt.length > 1 ? 'as variáveis não básicas' : 'a variável não básica'}
+        <b>${lista}</b> ${alt.length > 1 ? 'têm coeficiente 0 na linha Z, então qualquer uma delas poderia' : 'tem coeficiente 0 na linha Z, então poderia'}
+        entrar na base e levar a outro ponto ótimo sem alterar o valor de Z.
+      </div>`;
+    }
+    html += `</section>`;
+  } else if (last.kind === 'unbounded') {
+    /* leitura do último quadro: prova de que nada limita a variável que entra */
+    const col = last.pivot.col;
+    const entering = varName(col, n);
+    const zCoef = last.T[0][col];
+    const coefs = [];
+    for (let i = 1; i <= m; i++) {
+      coefs.push(`<li>linha <b>${varName(last.basis[i - 1], n)}</b>: ${fmt(last.T[i][col])}</li>`);
+    }
+    const sentido = isMin
+      ? 'Z pode diminuir indefinidamente (Z → −∞)'
+      : 'Z pode aumentar indefinidamente (Z → +∞)';
+
+    html += `<section class="card nosol">
+      <h2>⛔ Não existe solução ótima: o problema é ilimitado</h2>
+      <p>Na <b>Tabela ${lastIdx + 1}</b>, a variável <b>${entering}</b> deveria entrar na base, pois tem coeficiente
+         ${fmt(zCoef)} na linha Z, o que ainda melhora o objetivo. Porém, nenhum coeficiente da coluna ${entering}
+         nas linhas de restrição é positivo:</p>
+      <ul class="coef-list">${coefs.join('')}</ul>
+      <p>Sem coeficiente positivo não há razão CTE ÷ coluna a calcular, ou seja, nenhuma restrição impede
+         ${entering} de crescer. Quanto mais ${entering} cresce, mais o objetivo melhora: ${sentido}.</p>
+      <p class="nosol-foot">Na prática, isso costuma indicar uma restrição esquecida ou com o sinal trocado no modelo.</p>
+    </section>`;
+  } else {
+    /* limite de iterações: verifica se alguma base se repetiu (ciclagem) */
+    const seen = new Map();
+    let cycle = null;
+    for (let k = 0; k < steps.length && !cycle; k++) {
+      const key = steps[k].basis.slice().sort((a, b) => a - b).join(',');
+      if (seen.has(key)) cycle = { from: seen.get(key), to: k };
+      else seen.set(key, k);
+    }
+
+    html += `<section class="card warn">
+      <h2>⚠ O método não chegou a uma conclusão</h2>
+      <p>Foram executadas ${steps.length} iterações, o limite desta ferramenta, sem alcançar um quadro ótimo.</p>`;
+    if (cycle) {
+      html += `<p>A base da <b>Tabela ${cycle.to + 1}</b> é a mesma da <b>Tabela ${cycle.from + 1}</b>: o método entrou em
+         <b>ciclagem</b>. Isso acontece em problemas degenerados, com variável básica valendo 0, quando o pivoteamento troca
+         de base sem melhorar Z e acaba voltando ao mesmo ponto.</p>`;
+    }
+    html += `<p>Isso <b>não significa que o problema não tenha solução</b>: é uma limitação da regra de escolha do pivô
+         usada aqui, não do modelo. Regras anticiclagem, como a de Bland, garantem que o método termine.</p>
+    </section>`;
+  }
+  return html;
+}
+
+/* ---------- navegação entre abas ---------- */
+let activeTab = 0;
+
+function showTab(idx, opts = {}) {
+  const tabs = document.querySelectorAll('#output .step-tab');
+  const panels = document.querySelectorAll('#output .step-panel');
+  if (!tabs.length) return;
+  idx = Math.max(0, Math.min(tabs.length - 1, idx));
+  activeTab = idx;
+
+  tabs.forEach((t, i) => {
+    const on = i === idx;
+    t.setAttribute('aria-selected', on ? 'true' : 'false');
+    t.tabIndex = on ? 0 : -1;
+    t.classList.toggle('active', on);
+    t.classList.toggle('done', i < idx);
+  });
+  panels.forEach((p, i) => { p.hidden = i !== idx; });
+
+  /* fecha tooltip que pertença ao painel anterior */
+  document.querySelectorAll('.calc-icon.open').forEach(el => el.classList.remove('open'));
+  hideTip();
+
+  /* mantém a aba ativa visível na trilha (útil em telas estreitas) */
+  const strip = document.querySelector('#output .step-tabs');
+  const t = tabs[idx];
+  strip.scrollTo({ left: t.offsetLeft - (strip.clientWidth - t.offsetWidth) / 2, behavior: 'smooth' });
+
+  if (opts.focus) t.focus();
+  if (opts.scroll) {
+    const top = $('output').getBoundingClientRect().top + window.scrollY;
+    if (window.scrollY > top) window.scrollTo({ top, behavior: 'smooth' });
+  }
+}
+
+function renderResult() {
+  captureInto(model);
+  const n = model.n, m = model.m;
+  const isMin = model.type === 'min';
+  const out = $('output');
+
+  for (let i = 0; i < m; i++) {
+    if (model.b[i] < 0) {
+      out.innerHTML = `<section class="card warn"><h2>⚠ Termo independente negativo</h2>
+        <p>A restrição R${i + 1} possui CTE = ${fmt(model.b[i])}. Este solver trabalha com a forma padrão
+        (todas as restrições ≤ com segundo membro ≥ 0). Ajuste o modelo para continuar.</p></section>`;
+      return;
+    }
+  }
+
+  const steps = solveSimplex(model);
+  const last = steps[steps.length - 1];
+
+  /* uma aba por tabela (inclusive o quadro final) + uma aba exclusiva de resultado */
+  const panels = [];
+  steps.forEach((step, k) => {
+    let sub;
+    if (step.kind === 'iterate') {
+      const entering = varName(step.pivot.col, n);
+      const leaving = varName(step.basis[step.pivot.row - 1], n);
+      sub = `<span class="v">${entering}</span> entra, <span class="v">${leaving}</span> sai`;
+    } else if (step.kind === 'optimal') {
+      sub = 'quadro ótimo';
+    } else {
+      sub = 'sem razão válida';
+    }
+    panels.push({
+      title: `Tabela ${k + 1}`,
+      sub,
+      mark: String(k + 1),
+      result: false,
+      html: stepCardHTML(step, k, n, m, isMin)
+    });
+  });
+
+  let resSub = 'sem conclusão', resMark = '!', resState = 'undecided';
+  if (last.kind === 'optimal') {
+    const sol = extractSolution(last, n, m);
+    resSub = `${isMin ? 'Z mín' : 'Z máx'} = <span class="v">${fmt(sol.Z)}</span>`;
+    resMark = 'Z';
+    resState = 'ok';
+  } else if (last.kind === 'unbounded') {
+    resSub = 'sem solução (ilimitado)';
+    resMark = '∞';
+    resState = 'nosol';
+  }
+  panels.push({ title: 'Resultado', sub: resSub, mark: resMark, result: true, state: resState,
+                html: resultPanelHTML(steps, n, m, isMin) });
+
+  const N = panels.length;
+  let html = `<div class="stepper${isMin ? ' is-min' : ''}">
+    <div class="stepper-row">
+    <button type="button" class="tabs-scroll" data-scroll="-1" aria-label="Mostrar abas anteriores">‹</button>
+    <div class="step-tabs" role="tablist" aria-label="Etapas da resolução pelo Simplex">`;
+  panels.forEach((p, i) => {
+    html += `<button type="button" class="step-tab${p.result ? ' result ' + p.state : ''}" role="tab"
+               id="st-tab-${i}" aria-controls="st-panel-${i}" data-idx="${i}">
+               <span class="st-num">${p.mark}</span>
+               <span class="st-text"><span class="st-title">${p.title}</span>
+               <span class="st-sub">${p.sub}</span></span>
+             </button>`;
+  });
+  html += `</div>
+    <button type="button" class="tabs-scroll" data-scroll="1" aria-label="Mostrar próximas abas">›</button>
+    </div>
+    <p class="tabs-hint">${N} etapas: use as setas ou role a barra de abas para ver as demais.</p>
+  </div>`;
+
+  panels.forEach((p, i) => {
+    const prev = i > 0 ? panels[i - 1].title : null;
+    const next = i < N - 1 ? panels[i + 1].title : null;
+    html += `<div class="step-panel" role="tabpanel" id="st-panel-${i}" aria-labelledby="st-tab-${i}" hidden>
+      ${p.html}
+      <div class="pager">
+        ${prev ? `<button type="button" data-go="-1">Voltar para ${prev}</button>` : '<span class="spacer"></span>'}
+        <span class="count">Etapa ${i + 1} de ${N}</span>
+        ${next ? `<button type="button" class="primary" data-go="1">Ir para ${next}</button>` : '<span class="spacer"></span>'}
+      </div>
+    </div>`;
+  });
+
+  out.innerHTML = html;
+  $('output').querySelector('.step-tabs').addEventListener('scroll', updateTabsScroll, { passive: true });
+  updateTabsScroll();
+  showTab(0);
+
+  /* fecha qualquer tooltip aberta que sobreviva à re-renderização */
+  hideTip();
+  document.querySelectorAll('.calc-icon.open').forEach(el => el.classList.remove('open'));
+}
+
+/* estado da rolagem horizontal da trilha: setas, esmaecimento e dica */
+function updateTabsScroll() {
+  const stepper = document.querySelector('#output .stepper');
+  if (!stepper) return;
+  const strip = stepper.querySelector('.step-tabs');
+  const max = strip.scrollWidth - strip.clientWidth;
+  const overflow = max > 2;
+  const canLeft = overflow && strip.scrollLeft > 2;
+  const canRight = overflow && strip.scrollLeft < max - 2;
+  stepper.classList.toggle('overflow', overflow);
+  stepper.classList.toggle('can-left', canLeft);
+  stepper.classList.toggle('can-right', canRight);
+  stepper.querySelector('[data-scroll="-1"]').disabled = !canLeft;
+  stepper.querySelector('[data-scroll="1"]').disabled = !canRight;
+}
+window.addEventListener('resize', updateTabsScroll);
+
+/* cliques nas abas, nas setas de rolagem e nos botões Voltar/Ir para (delegado) */
+$('output').addEventListener('click', e => {
+  const arrow = e.target.closest('[data-scroll]');
+  if (arrow) {
+    const strip = document.querySelector('#output .step-tabs');
+    strip.scrollBy({ left: parseInt(arrow.dataset.scroll, 10) * strip.clientWidth * 0.7, behavior: 'smooth' });
+    return;
+  }
+  const tab = e.target.closest('.step-tab');
+  if (tab) { showTab(parseInt(tab.dataset.idx, 10)); return; }
+  const go = e.target.closest('[data-go]');
+  if (go) showTab(activeTab + parseInt(go.dataset.go, 10), { scroll: true });
+});
+
+/* teclado na trilha: ← → Home End */
+$('output').addEventListener('keydown', e => {
+  if (!e.target.closest('.step-tab')) return;
+  const count = document.querySelectorAll('#output .step-tab').length;
+  let to = null;
+  if (e.key === 'ArrowRight') to = activeTab + 1;
+  else if (e.key === 'ArrowLeft') to = activeTab - 1;
+  else if (e.key === 'Home') to = 0;
+  else if (e.key === 'End') to = count - 1;
+  if (to === null) return;
+  e.preventDefault();
+  showTab(to, { focus: true });
+});
+
+/* =========================================================
+   4b. TOOLTIP DE FÓRMULA
+   ========================================================= */
+const tipEl = $('calcTooltip');
+
+function showTip(icon){
+  const formula = icon.getAttribute('data-formula');
+  if (!formula) return;
+  const label = icon.getAttribute('data-label') || '';
+
+  tipEl.innerHTML = (label ? `<span class="tt-label">${escapeAttr(label)}</span>` : '') +
+                    escapeAttr(formula);
+
+  /* mede tamanho com o conteúdo já inserido */
+  const tipW = tipEl.offsetWidth;
+  const tipH = tipEl.offsetHeight;
+  const r = icon.getBoundingClientRect();
+  const pad = 12;
+
+  let left = r.left + r.width / 2;
+  let top  = r.top - 10;
+  let placement = 'above';
+
+  /* se não caber acima, coloca abaixo */
+  if (top - tipH < pad) {
+    placement = 'below';
+    top = r.bottom + 10;
+  }
+
+  /* clamp horizontal */
+  const minL = tipW / 2 + pad;
+  const maxL = window.innerWidth - tipW / 2 - pad;
+  if (left < minL) left = minL;
+  if (left > maxL) left = maxL;
+
+  tipEl.style.left = left + 'px';
+  tipEl.style.top  = top + 'px';
+  tipEl.classList.toggle('below', placement === 'below');
+  tipEl.classList.add('visible');
+}
+
+function hideTip(){
+  tipEl.classList.remove('visible');
+}
+
+/* hover (delegado) */
+document.addEventListener('mouseover', e => {
+  const icon = e.target.closest && e.target.closest('.calc-icon');
+  if (!icon) return;
+  if (e.relatedTarget && icon.contains(e.relatedTarget)) return;
+  showTip(icon);
+});
+
+document.addEventListener('mouseout', e => {
+  const icon = e.target.closest && e.target.closest('.calc-icon');
+  if (!icon) return;
+  if (e.relatedTarget && icon.contains(e.relatedTarget)) return;
+  /* se estiver "pinado" (clique), mantém aberto */
+  if (!icon.classList.contains('open')) hideTip();
+});
+
+/* clique: fixa / fecha */
+document.addEventListener('click', e => {
+  const icon = e.target.closest && e.target.closest('.calc-icon');
+
+  if (icon) {
+    const wasOpen = icon.classList.contains('open');
+    document.querySelectorAll('.calc-icon.open').forEach(el => el.classList.remove('open'));
+    if (!wasOpen) {
+      icon.classList.add('open');
+      showTip(icon);
+    } else {
+      hideTip();
+    }
+    e.stopPropagation();
+    return;
+  }
+
+  /* clique fora: fecha todos */
+  document.querySelectorAll('.calc-icon.open').forEach(el => el.classList.remove('open'));
+  hideTip();
+});
+
+/* teclado: Enter/Espaço fixa, Esc fecha */
+document.addEventListener('keydown', e => {
+  const icon = e.target.closest && e.target.closest('.calc-icon');
+  if (icon && (e.key === 'Enter' || e.key === ' ')) {
+    e.preventDefault();
+    const wasOpen = icon.classList.contains('open');
+    document.querySelectorAll('.calc-icon.open').forEach(el => el.classList.remove('open'));
+    if (!wasOpen) { icon.classList.add('open'); showTip(icon); }
+    else hideTip();
+  } else if (e.key === 'Escape') {
+    document.querySelectorAll('.calc-icon.open').forEach(el => el.classList.remove('open'));
+    hideTip();
+  }
+});
+
+/* ao rolar/redimensionar, reposiciona tooltips abertas (ou esconde) */
+function repositionOpenTips(){
+  const open = document.querySelector('.calc-icon.open');
+  if (open) {
+    if (tipEl.classList.contains('visible')) showTip(open);
+  } else {
+    hideTip();
+  }
+}
+window.addEventListener('scroll', repositionOpenTips, true);
+window.addEventListener('resize', repositionOpenTips);
+
+/* fecha tooltip ao trocar de aba/janela */
+window.addEventListener('blur', () => {
+  document.querySelectorAll('.calc-icon.open').forEach(el => el.classList.remove('open'));
+  hideTip();
+});
+
+/* =========================================================
+   4c. COLAR DADOS TABULARES (Excel, Google Sheets, texto com TAB)
+   ---------------------------------------------------------
+   A entrada é tratada como uma grade:
+     linha 0      → Z:  c0 … c(n-1)
+     linha i (≥1) → Ri: a(i-1)_0 … a(i-1)_(n-1), b(i-1)
+   O bloco colado preenche a grade a partir do campo em foco.
+   ========================================================= */
+function setPasteStatus(msg, kind) {
+  const el = $('pasteStatus');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'paste-status' + (kind ? ' ' + kind : '');
+}
+
+/* id do campo → posição na grade */
+function gridPos(id) {
+  let r;
+  if ((r = /^c(\d+)$/.exec(id))) return { row: 0, col: +r[1] };
+  if ((r = /^a(\d+)_(\d+)$/.exec(id))) return { row: +r[1] + 1, col: +r[2] };
+  if ((r = /^b(\d+)$/.exec(id))) return { row: +r[1] + 1, col: model.n };
+  return null;
+}
+
+/* posição na grade → campo (ou null se não existir) */
+function gridInput(row, col) {
+  const n = model.n, m = model.m;
+  if (row === 0) return col < n ? $('c' + col) : null;
+  if (row > m || col > n) return null;
+  return col < n ? $('a' + (row - 1) + '_' + col) : $('b' + (row - 1));
+}
+
+function posLabel(row, col) {
+  if (row === 0) return `Z, x${col + 1}`;
+  return col < model.n ? `R${row}, x${col + 1}` : `R${row}, CTE`;
+}
+
+/* aceita 0,75 | 0.75 | 1.234,5 | 1,234.5 | −3 | espaços; devolve número, null (vazio) ou NaN (texto) */
+function parseCell(raw) {
+  let t = String(raw).replace(/[\s\u00a0]/g, '').replace(/[\u2212\u2013]/g, '-');
+  if (t === '') return null;
+  const hasC = t.includes(','), hasD = t.includes('.');
+  if (hasC && hasD) {
+    t = t.lastIndexOf(',') > t.lastIndexOf('.')
+      ? t.replace(/\./g, '').replace(',', '.')   /* 1.234,5 */
+      : t.replace(/,/g, '');                      /* 1,234.5 */
+  } else if (hasC) {
+    t = t.replace(',', '.');
+  }
+  const v = Number(t);
+  return isFinite(v) ? v : NaN;
+}
+
+/* texto colado → matriz numérica, removendo linhas e colunas sem nenhum número (rótulos, "≤" etc.) */
+function parseBlock(text) {
+  let lines = text.replace(/\r\n?/g, '\n').split('\n');
+  while (lines.length && lines[lines.length - 1].trim() === '') lines.pop();
+  let grid = lines.map(l => l.split('\t').map(parseCell));
+
+  const isNum = v => typeof v === 'number' && !isNaN(v);
+  grid = grid.filter(r => r.some(isNum));
+  const width = Math.max(0, ...grid.map(r => r.length));
+  const keepCols = [];
+  for (let j = 0; j < width; j++) if (grid.some(r => isNum(r[j]))) keepCols.push(j);
+
+  const matrix = grid.map(r => keepCols.map(j => (r[j] === undefined ? null : r[j])));
+  return { matrix };
+}
+
+document.addEventListener('paste', e => {
+  const target = e.target;
+  if (!target || !target.matches || !target.matches('input.num')) return;
+  const start = gridPos(target.id);
+  if (!start) return;
+
+  const text = (e.clipboardData || window.clipboardData).getData('text');
+  if (!text) return;
+  const { matrix } = parseBlock(text);
+
+  /* nada numérico: deixa o navegador lidar (e avisa se era um bloco) */
+  if (!matrix.length) {
+    if (/[\t\n]/.test(text)) {
+      e.preventDefault();
+      setPasteStatus('Nenhum número encontrado no conteúdo colado.', 'err');
+    }
+    return;
+  }
+  e.preventDefault();
+
+  let filled = 0, outside = 0, badCells = 0, lastRow = start.row, lastCol = start.col;
+  const touched = [];
+  matrix.forEach((r, i) => r.forEach((v, j) => {
+    if (v === null) return;                           /* célula vazia: mantém o valor atual */
+    if (Number.isNaN(v)) { badCells++; return; }      /* texto no meio dos números */
+    const row = start.row + i, col = start.col + j;
+    const el = gridInput(row, col);
+    if (!el) { outside++; return; }
+    el.value = String(v);
+    touched.push(el);
+    filled++;
+    lastRow = Math.max(lastRow, row);
+    lastCol = Math.max(lastCol, col);
+  }));
+
+  /* destaque visual dos campos preenchidos */
+  touched.forEach(el => { el.classList.remove('pasted'); void el.offsetWidth; el.classList.add('pasted'); });
+  captureInto(model);
+
+  if (matrix.length === 1 && matrix[0].length === 1) { setPasteStatus('', ''); return; }
+
+  let msg = `${filled} ${filled === 1 ? 'valor colado' : 'valores colados'} de (${posLabel(start.row, start.col)}) até (${posLabel(lastRow, lastCol)}).`;
+  let kind = 'ok';
+  if (outside) {
+    msg += ` ${outside} ${outside === 1 ? 'valor ficou' : 'valores ficaram'} fora da tabela, que tem ${model.n} variáveis e ${model.m} ${model.m === 1 ? 'restrição' : 'restrições'}: ajuste as quantidades e cole de novo.`;
+    kind = 'partial';
+  }
+  if (badCells) {
+    msg += ` ${badCells} ${badCells === 1 ? 'célula com texto foi ignorada' : 'células com texto foram ignoradas'} no meio dos números.`;
+    kind = 'partial';
+  }
+  msg += ' Clique em Resolver pelo Simplex para ver as tabelas.';
+  setPasteStatus(msg, kind);
+});
+
+/* =========================================================
+   4d. TELA DE AJUDA (Saiba mais)
+   ========================================================= */
+const helpDlg = $('helpDialog');
+$('btnHelp').addEventListener('click', () => {
+  hideTip();
+  helpDlg.showModal();
+  helpDlg.querySelector('.help-body').scrollTop = 0;
+});
+helpDlg.addEventListener('click', e => {
+  if (e.target.closest('[data-close-help]') || e.target === helpDlg) helpDlg.close();   /* botões ou clique fora */
+});
+helpDlg.addEventListener('close', () => $('btnHelp').focus());
+
+/* =========================================================
+   5. EVENTOS
+   ========================================================= */
+$('nVars').addEventListener('change', () => {
+  captureInto(model);
+  const n = Math.min(5, Math.max(2, parseInt($('nVars').value) || 2));
+  const m = Math.min(6, Math.max(1, parseInt($('nCons').value) || 1));
+  $('nVars').value = n; $('nCons').value = m;
+  resizeModel(model, n, m);
+  buildForm();
+  renderResult();
+});
+
+$('nCons').addEventListener('change', () => {
+  captureInto(model);
+  const n = Math.min(5, Math.max(2, parseInt($('nVars').value) || 2));
+  const m = Math.min(6, Math.max(1, parseInt($('nCons').value) || 1));
+  $('nVars').value = n; $('nCons').value = m;
+  resizeModel(model, n, m);
+  buildForm();
+  renderResult();
+});
+
+$('objType').addEventListener('change', () => {
+  captureInto(model);
+  buildForm();
+  renderResult();
+});
+
+$('btnSolve').addEventListener('click', renderResult);
+
+$('btnExample').addEventListener('click', () => {
+  model.type = 'max';
+  model.n = 2; model.m = 2;
+  model.c = [30, 50];
+  model.A = [[2, 4], [3, 2]];
+  model.b = [40, 30];
+  $('nVars').value = 2; $('nCons').value = 2;
+  if ($('objType')) $('objType').value = 'max';
+  buildForm();
+  renderResult();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
+$('btnExampleMin').addEventListener('click', () => {
+  model.type = 'min';
+  model.n = 2; model.m = 2;
+  model.c = [-3, -5];
+  model.A = [[2, 4], [3, 2]];
+  model.b = [40, 30];
+  $('nVars').value = 2; $('nCons').value = 2;
+  if ($('objType')) $('objType').value = 'min';
+  buildForm();
+  renderResult();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
+$('btnClear').addEventListener('click', () => {
+  const n = model.n, m = model.m;
+  model.c = new Array(n).fill(0);
+  model.A = Array.from({ length: m }, () => new Array(n).fill(0));
+  model.b = new Array(m).fill(0);
+  buildForm();
+  $('output').innerHTML = '';
+  hideTip();
+});
+
+/* =========================================================
+   6. INICIALIZAÇÃO
+   ========================================================= */
+buildForm();
+renderResult();
+</script>
+</body>
+</html>
